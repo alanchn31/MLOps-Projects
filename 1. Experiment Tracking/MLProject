@@ -1,0 +1,7 @@
+name: Stroke_prediction
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    command: "python model_train.py"
