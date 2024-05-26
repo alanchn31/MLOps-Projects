@@ -27,3 +27,9 @@ mlflow ui
 ```python
 python test_model.py
 ```
+
+## Serve Model:
+- Serve the Models with Local REST server
+`mlflow models serve -m runs:/<RUN_ID>/model --port 9000`
+
+`mlflow models serve -m file:///C:/Users/alanc/OneDrive/Desktop/MLOps-Projects/1.%20Experiment%20Tracking/mlruns/311895239248179124/33d687362a4d4e329167f2db712e26e7/artifacts/model_pipeline --port 9000`

@@ -12,6 +12,7 @@ import xgboost as xgb
 from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.pipeline import Pipeline
 from sklearn.metrics import auc, roc_curve, accuracy_score
 from sklearn.model_selection import train_test_split
 # override Optuna's default logging to ERROR only
@@ -53,7 +54,7 @@ def load_dataset():
     y = df.stroke
     RANDOM_SEED = 6
     X_train, X_test, y_train, y_test = train_test_split(X,y, test_size =0.3, random_state = RANDOM_SEED)
-    return X_train, X_test, y_train, y_test, transformer
+    return df, X_train, X_test, y_train, y_test, transformer
 
 # define a logging callback that will report on only new challenger parameter configurations if a
 # trial has usurped the state of 'best conditions'
@@ -82,7 +83,7 @@ def champion_callback(study, frozen_trial):
             print(f"Initial trial {frozen_trial.number} achieved value: {frozen_trial.value}")
 
 def main():
-    X_train, X_valid, y_train, y_valid, column_transformer = load_dataset()
+    df, X_train, X_valid, y_train, y_valid, column_transformer = load_dataset()
     dtrain = xgb.DMatrix(X_train, label=y_train)
     dvalid = xgb.DMatrix(X_valid, label=y_valid)
 
@@ -142,24 +143,16 @@ def main():
         # Log a fit model instance
         model = xgb.train(study.best_params, dtrain)
 
-        # Log the data transformer
-        name = 'column_transformers'
-        transformer_artifact_path = 'data_transformer'
-        mlflow.sklearn.log_model(sk_model=column_transformer, 
-                                artifact_path=transformer_artifact_path)
 
-        model_artifact_path = "model"
-        mlflow.xgboost.log_model(
-            xgb_model=model,
-            artifact_path=model_artifact_path,
-        input_example=X_train[[0]],
-            model_format="ubj",
-            metadata={"model_data_version": 1},
-        )
+        clf = Pipeline(steps=[('col_transformer', column_transformer),
+                              ('classifier', xgb.XGBClassifier(**study.best_params))], verbose=True)
 
-        # Get the logged model uri so that we can load it from the artifact store
-        model_uri = mlflow.get_artifact_uri(model_artifact_path)
-        transformer_uri = mlflow.get_artifact_uri(transformer_artifact_path)
+        clf.fit(df, df['stroke'].values)
+
+        # Log the model pipeline
+        pipeline_path = 'model_pipeline'
+        mlflow.sklearn.log_model(sk_model=clf, 
+                                artifact_path=pipeline_path)
 
 if __name__ == "__main__":
     main()
